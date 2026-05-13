@@ -107,6 +107,16 @@ DYLD_INTERPOSE(pt_uname, uname)
 DYLD_INTERPOSE(pt_sysctlbyname, sysctlbyname)
 DYLD_INTERPOSE(pt_sysctl, sysctl)
 
+// Avoid %@ on opaque Security/CoreFoundation values. Their descriptions can
+// walk bridged objects that are not safe to stringify on macOS.
+static NSString *pt_safeCFLogValue(CFTypeRef value) {
+    if (value == NULL) {
+        return @"<NULL>";
+    }
+
+    return [NSString stringWithFormat:@"<CFTypeRef %p>", value];
+}
+
 // Interpose Apple Keychain functions (SecItemCopyMatching, SecItemAdd, SecItemUpdate, SecItemDelete)
 // This allows us to intercept keychain requests and return our own data
 
@@ -120,8 +130,8 @@ static OSStatus pt_SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result)
     }
     if (result != NULL) {
         if ([[PlaySettings shared] playChainDebugging]) {
-            [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecItemCopyMatching: %@", query]];
-            [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecItemCopyMatching result: %@", *result]];
+            [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecItemCopyMatching: %@", pt_safeCFLogValue(query)]];
+            [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecItemCopyMatching result: %@", pt_safeCFLogValue(result != NULL ? *result : NULL)]];
         }
     }
     return retval;
@@ -136,8 +146,8 @@ static OSStatus pt_SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result) {
     }
     if (result != NULL) {
         if ([[PlaySettings shared] playChainDebugging]) {
-            [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecItemAdd: %@", attributes]];
-            [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecItemAdd result: %@", *result]];
+            [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecItemAdd: %@", pt_safeCFLogValue(attributes)]];
+            [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecItemAdd result: %@", pt_safeCFLogValue(result != NULL ? *result : NULL)]];
         }
     }
     return retval;
@@ -152,8 +162,8 @@ static OSStatus pt_SecItemUpdate(CFDictionaryRef query, CFDictionaryRef attribut
     }
     if (attributesToUpdate != NULL) {
         if ([[PlaySettings shared] playChainDebugging]) {
-            [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecItemUpdate: %@", query]];
-            [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecItemUpdate attributesToUpdate: %@", attributesToUpdate]];
+            [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecItemUpdate: %@", pt_safeCFLogValue(query)]];
+            [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecItemUpdate attributesToUpdate: %@", pt_safeCFLogValue(attributesToUpdate)]];
         }
     }
     return retval;
@@ -168,7 +178,7 @@ static OSStatus pt_SecItemDelete(CFDictionaryRef query) {
         retval = SecItemDelete(query);
     }
     if ([[PlaySettings shared] playChainDebugging]) {
-        [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecItemDelete: %@", query]];
+        [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecItemDelete: %@", pt_safeCFLogValue(query)]];
     }
     return retval;
 }
@@ -182,8 +192,8 @@ static SecKeyRef pt_SecKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef
     }
     
         if ([[PlaySettings shared] playChainDebugging]) {
-            [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecKeyCreateRandomKey: %@", parameters]];
-            [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecKeyCreateRandomKey result: %@", result]];
+            [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecKeyCreateRandomKey: %@", pt_safeCFLogValue(parameters)]];
+            [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecKeyCreateRandomKey result: %@", pt_safeCFLogValue((CFTypeRef)result)]];
         }
     
     return result;
@@ -199,9 +209,9 @@ static OSStatus pt_SecKeyGeneratePair(CFDictionaryRef parameters, SecKeyRef *pub
     }
     
     if ([[PlaySettings shared] playChainDebugging]) {
-        [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecKeyGeneratePair: %@", parameters]];
-        [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecKeyGeneratePair public key result: %@", publicKey != NULL ? *publicKey : nil]];
-        [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecKeyGeneratePair private key result: %@", privateKey != NULL ? *privateKey : nil]];
+        [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecKeyGeneratePair: %@", pt_safeCFLogValue(parameters)]];
+        [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecKeyGeneratePair public key result: %@", pt_safeCFLogValue(publicKey != NULL ? (CFTypeRef)*publicKey : NULL)]];
+        [PlayKeychain debugLogger:[NSString stringWithFormat:@"SecKeyGeneratePair private key result: %@", pt_safeCFLogValue(privateKey != NULL ? (CFTypeRef)*privateKey : NULL)]];
     }
     
     return retval;
